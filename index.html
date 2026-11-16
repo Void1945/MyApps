@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101411">
+  <meta name="description" content="A simple offline-first personal expense tracker.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <title>SpendSnap</title>
+  <style>
+    :root{color-scheme:dark;--bg:#101411;--panel:#191f1b;--panel2:#202923;--line:#2b352e;--text:#f3f5f1;--muted:#9ba69e;--green:#b8f36b;--green2:#8fce48;--radius:22px}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(ellipse at 80% -10%,#26372a 0,transparent 42%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+    button,input,select,textarea{font:inherit} button{cursor:pointer}
+    .app{max-width:760px;margin:0 auto;padding:env(safe-area-inset-top) 18px calc(92px + env(safe-area-inset-bottom))}
+    .topbar{display:flex;justify-content:space-between;align-items:center;padding:22px 2px 20px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.5px;font-size:20px}.brand-mark{width:34px;height:34px;border-radius:12px;background:var(--green);color:#14200e;display:grid;place-items:center;font-size:20px;font-weight:900}
+    .date-label{font-size:12px;color:var(--muted);font-weight:600}
+    .icon-btn{width:42px;height:42px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);font-size:18px}
+    .eyebrow{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:1.5px;font-weight:700}
+    h1{font-size:30px;line-height:1.12;letter-spacing:-1.2px;margin:7px 0 18px}
+    .balance{background:linear-gradient(135deg,#c8ff7d,#9ddc55);color:#182311;border-radius:26px;padding:22px 22px 20px;position:relative;overflow:hidden;box-shadow:0 14px 38px #0004}
+    .balance:after{content:"";position:absolute;width:180px;height:180px;border:1px solid #ffffff55;border-radius:50%;right:-55px;top:-95px;box-shadow:0 0 0 22px #ffffff12,0 0 0 45px #ffffff0b}
+    .balance .eyebrow{color:#3f5a2a}.balance-amount{font-size:38px;font-weight:850;letter-spacing:-1.7px;margin:7px 0 17px}
+    .balance-foot{display:flex;gap:22px;position:relative;z-index:1}.metric small{display:block;color:#486132;font-size:11px;font-weight:700;margin-bottom:4px}.metric strong{font-size:14px}
+    .section-head{display:flex;align-items:end;justify-content:space-between;margin:28px 2px 14px}.section-head h2{font-size:18px;margin:0;letter-spacing:-.4px}.section-head button{border:0;background:none;color:var(--green);font-size:12px;font-weight:700}
+    .category-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+    .category{border:1px solid var(--line);border-radius:21px;padding:16px;text-align:left;min-height:132px;background:linear-gradient(145deg,var(--tile),#1a211c 78%);color:var(--text);position:relative;overflow:hidden;transition:transform .15s,border-color .15s}
+    .category:active{transform:scale(.975)}.category:last-child{grid-column:1/-1;min-height:104px}
+    .cat-icon{width:39px;height:39px;border-radius:13px;background:color-mix(in srgb,var(--accent) 18%,transparent);display:grid;place-items:center;font-size:21px;margin-bottom:13px}
+    .cat-title{font-size:15px;font-weight:750}.cat-sub{font-size:11px;color:var(--muted);margin-top:4px}.cat-arrow{position:absolute;right:15px;top:17px;color:var(--muted);font-size:18px}
+    .recent-list{display:flex;flex-direction:column;gap:9px}.transaction{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);padding:12px;border-radius:17px}
+    .tx-icon{width:42px;height:42px;border-radius:14px;background:var(--panel2);display:grid;place-items:center;font-size:19px;flex:none}.tx-main{min-width:0;flex:1}.tx-title{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tx-meta{font-size:11px;color:var(--muted);margin-top:4px}.tx-amount{font-size:14px;font-weight:800;white-space:nowrap}
+    .empty{border:1px dashed #39453c;border-radius:18px;padding:24px;text-align:center;color:var(--muted);font-size:13px}.empty b{display:block;color:var(--text);margin-bottom:5px}
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:5;background:#111713ed;backdrop-filter:blur(18px);border-top:1px solid var(--line);padding:10px 20px calc(10px + env(safe-area-inset-bottom));display:flex;justify-content:center}
+    .nav-inner{width:min(100%,500px);display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.nav-item{border:0;background:none;color:var(--muted);font-size:10px;font-weight:700;padding:6px;border-radius:12px}.nav-item span{display:block;font-size:19px;margin-bottom:3px}.nav-item.active{color:var(--green);background:#b8f36b12}
+    .screen{display:none;animation:rise .22s ease}.screen.active{display:block}@keyframes rise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+    .screen-head{display:flex;align-items:center;gap:12px;padding:12px 0 22px}.back{width:42px;height:42px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);font-size:20px}.screen-head h2{margin:0;font-size:21px;letter-spacing:-.5px}.screen-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
+    .form-card{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:18px}
+    .field{margin-bottom:16px}.field:last-child{margin-bottom:0}.field label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px}
+    .control{width:100%;background:#111713;border:1px solid #303b33;border-radius:13px;padding:13px 14px;color:var(--text);outline:none;min-height:48px}.control:focus{border-color:var(--green);box-shadow:0 0 0 3px #b8f36b18}
+    .amount-wrap{position:relative}.currency{position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:20px;font-weight:800;color:var(--green)}.amount-input{font-size:27px;font-weight:800;padding-left:43px;letter-spacing:-.5px}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:11px}.primary{width:100%;border:0;border-radius:15px;background:var(--green);color:#17210f;font-weight:850;padding:15px;margin-top:18px;box-shadow:0 8px 22px #b8f36b1c}.primary:active{transform:scale(.99)}
+    .hint{font-size:11px;color:var(--muted);line-height:1.5;margin:12px 2px}
+    .history-tools{display:flex;gap:9px;margin-bottom:14px}.history-tools input{flex:1;min-width:0}
+    .danger{border:1px solid #663c3c;background:#2a1919;color:#ffaaaa;border-radius:11px;padding:8px 10px;font-size:11px}
+    .toast{position:fixed;bottom:95px;left:50%;transform:translate(-50%,15px);opacity:0;background:#e5f8d2;color:#1b2b11;padding:11px 16px;border-radius:99px;font-size:12px;font-weight:800;z-index:10;transition:.2s;pointer-events:none;white-space:nowrap}.toast.show{opacity:1;transform:translate(-50%,0)}
+    .install-note{display:none;background:#202b21;border:1px solid #3c5634;border-radius:16px;padding:13px;margin-top:18px;font-size:12px;color:#dcebd2}.install-note button{float:right;background:var(--green);border:0;border-radius:9px;padding:6px 10px;font-weight:800;color:#17210f}
+    @media(min-width:600px){.app{padding-left:26px;padding-right:26px}.category{min-height:145px}.category:last-child{min-height:110px}.balance{padding:26px}.balance-amount{font-size:44px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">₹</div> SpendSnap</div>
+    <div class="date-label" id="todayLabel"></div>
+  </header>
+
+  <main>
+    <section class="screen active" id="homeScreen">
+      <div class="eyebrow">Your money, at a glance</div>
+      <h1>Keep track.<br>Stay in control.</h1>
+      <div class="balance">
+        <div class="eyebrow">Spent this month</div>
+        <div class="balance-amount" id="monthTotal">₹0</div>
+        <div class="balance-foot">
+          <div class="metric"><small>TODAY</small><strong id="todayTotal">₹0</strong></div>
+          <div class="metric"><small>ENTRIES</small><strong id="monthCount">0 expenses</strong></div>
+        </div>
+      </div>
+      <div class="section-head"><h2>Add an expense</h2><span class="eyebrow">Choose a category</span></div>
+      <div class="category-grid" id="categoryGrid"></div>
+      <div class="section-head"><h2>Recent activity</h2><button onclick="showScreen('historyScreen')">View all →</button></div>
+      <div class="recent-list" id="recentList"></div>
+      <div class="install-note" id="installNote">Add SpendSnap to your home screen for quick access. <button id="installBtn">Install</button></div>
+    </section>
+
+    <section class="screen" id="entryScreen">
+      <div class="screen-head"><button class="back" onclick="showScreen('homeScreen')" aria-label="Go back">‹</button><div><h2 id="entryTitle">Add expense</h2><p id="entrySubtitle">A few details and you're done</p></div></div>
+      <form class="form-card" id="expenseForm">
+        <div class="field"><label for="amount">AMOUNT *</label><div class="amount-wrap"><span class="currency">₹</span><input class="control amount-input" id="amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required></div></div>
+        <div id="specificFields"></div>
+        <div class="two-col">
+          <div class="field"><label for="date">DATE</label><input class="control" id="date" type="date" required></div>
+          <div class="field"><label for="time">TIME</label><input class="control" id="time" type="time" required></div>
+        </div>
+        <div class="field"><label for="note">NOTE (OPTIONAL)</label><input class="control" id="note" type="text" maxlength="100" placeholder="Add a short note"></div>
+        <button class="primary" type="submit">Save expense</button>
+      </form>
+      <p class="hint">Your entry is saved on this device. No account or internet connection needed.</p>
+    </section>
+
+    <section class="screen" id="historyScreen">
+      <div class="screen-head"><button class="back" onclick="showScreen('homeScreen')" aria-label="Go back">‹</button><div><h2>All expenses</h2><p>Your spending history</p></div></div>
+      <div class="history-tools"><input class="control" id="searchInput" placeholder="Search expenses..." type="search"><input class="control" id="monthFilter" type="month" aria-label="Filter by month" style="max-width:145px"></div>
+      <div class="recent-list" id="historyList"></div>
+    </section>
+
+    <section class="screen" id="summaryScreen">
+      <div class="screen-head"><button class="back" onclick="showScreen('homeScreen')" aria-label="Go back">‹</button><div><h2>Spending summary</h2><p>A simple breakdown by category</p></div></div>
+      <div class="balance" style="margin-bottom:16px"><div class="eyebrow">Total recorded</div><div class="balance-amount" id="allTotal">₹0</div><div class="metric"><small>ALL TIME ENTRIES</small><strong id="allCount">0 expenses</strong></div></div>
+      <div class="recent-list" id="summaryList"></div>
+      <button class="primary" onclick="exportCSV()">Export expenses as CSV</button>
+      <p class="hint">Keep a backup by exporting your expenses periodically.</p>
+    </section>
+  </main>
+</div>
+
+<nav class="bottom-nav"><div class="nav-inner">
+  <button class="nav-item active" data-screen="homeScreen" onclick="showScreen('homeScreen')"><span>⌂</span>Home</button>
+  <button class="nav-item" data-screen="historyScreen" onclick="showScreen('historyScreen')"><span>≡</span>History</button>
+  <button class="nav-item" data-screen="summaryScreen" onclick="showScreen('summaryScreen')"><span>◷</span>Summary</button>
+</div></nav>
+<div class="toast" id="toast">Expense saved</div>
+
+<script>
+const categories = [
+ {id:'online',name:'Online Orders',sub:'Shopping & deliveries',icon:'🛍️',color:'#83a9e8',fields:[{id:'item',label:'WHAT DID YOU ORDER?',placeholder:'e.g. Phone case',type:'text'},{id:'store',label:'STORE / PLATFORM',placeholder:'e.g. Amazon, Flipkart',type:'text'}]},
+ {id:'petrol',name:'Petrol',sub:'Fuel & refuelling',icon:'⛽',color:'#f0b65f',fields:[{id:'litres',label:'LITRES (OPTIONAL)',placeholder:'e.g. 8.5',type:'number'},{id:'odometer',label:'ODOMETER (OPTIONAL)',placeholder:'e.g. 12450 km',type:'text'}]},
+ {id:'bike',name:'Bike Expense',sub:'Service & accessories',icon:'🏍️',color:'#79d0ad',fields:[{id:'bikeType',label:'EXPENSE TYPE',type:'select',options:['Service','Maintenance','Accessories','Repairs','Other']},{id:'item',label:'DETAILS',placeholder:'e.g. Engine oil change',type:'text'}]},
+ {id:'food',name:'Food',sub:'Meals, snacks & drinks',icon:'🍜',color:'#e58f9b',fields:[{id:'meal',label:'MEAL TYPE',type:'select',options:['Breakfast','Lunch','Dinner','Snacks','Drinks','Other']},{id:'place',label:'PLACE (OPTIONAL)',placeholder:'Restaurant or shop',type:'text'}]},
+ {id:'other',name:'Other Expense',sub:'Everything else',icon:'💳',color:'#b6a0e8',fields:[{id:'item',label:'WHAT WAS IT FOR?',placeholder:'e.g. Electricity bill',type:'text'},{id:'payment',label:'PAYMENT METHOD',type:'select',options:['UPI','Cash','Card','Bank transfer','Other']}]}
+];
+let expenses = JSON.parse(localStorage.getItem('spendsnap_expenses') || '[]');
+let selectedCategory = 'online';
+const money = n => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(Number(n)||0);
+const today = new Date();
+const isoDate = d => {const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)};
+document.getElementById('todayLabel').textContent = today.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+document.getElementById('date').value = isoDate(today);
+document.getElementById('time').value = today.toTimeString().slice(0,5);
+
+function renderCategories(){
+ document.getElementById('categoryGrid').innerHTML = categories.map(c=>`<button class="category" style="--tile:${c.color}12;--accent:${c.color}" onclick="openEntry('${c.id}')"><span class="cat-arrow">↗</span><span class="cat-icon">${c.icon}</span><div class="cat-title">${c.name}</div><div class="cat-sub">${c.sub}</div></button>`).join('');
+}
+function showScreen(id){
+ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));
+ document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.screen===id));
+ if(id==='historyScreen') renderHistory();
+ if(id==='summaryScreen') renderSummary();
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+function openEntry(id){
+ selectedCategory=id; const c=categories.find(x=>x.id===id);
+ document.getElementById('entryTitle').textContent=c.name;
+ document.getElementById('entrySubtitle').textContent='Add the details of your '+c.name.toLowerCase();
+ document.getElementById('specificFields').innerHTML=c.fields.map(f=>{
+   let input=f.type==='select'?`<select class="control" id="extra_${f.id}">${f.options.map(o=>`<option>${o}</option>`).join('')}</select>`:`<input class="control" id="extra_${f.id}" type="${f.type}" ${f.type==='number'?'inputmode="decimal" min="0" step="any"':''} placeholder="${f.placeholder||''}">`;
+   return `<div class="field"><label for="extra_${f.id}">${f.label}</label>${input}</div>`;
+ }).join('');
+ document.getElementById('expenseForm').reset();
+ document.getElementById('date').value=isoDate(new Date());document.getElementById('time').value=new Date().toTimeString().slice(0,5);
+ showScreen('entryScreen');setTimeout(()=>document.getElementById('amount').focus(),250);
+}
+document.getElementById('expenseForm').addEventListener('submit',e=>{
+ e.preventDefault();const c=categories.find(x=>x.id===selectedCategory);const amount=Number(document.getElementById('amount').value);
+ if(!amount||amount<=0)return;
+ const extra={};c.fields.forEach(f=>{const el=document.getElementById('extra_'+f.id);if(el&&el.value)extra[f.id]=el.value});
+ expenses.unshift({id:Date.now(),category:selectedCategory,amount,date:document.getElementById('date').value,time:document.getElementById('time').value,note:document.getElementById('note').value.trim(),extra});
+ localStorage.setItem('spendsnap_expenses',JSON.stringify(expenses));renderHome();showScreen('homeScreen');toast('Expense saved successfully');
+});
+function categoryOf(id){return categories.find(c=>c.id===id)||categories[4]}
+function fmtDate(s){if(!s)return '';return new Date(s+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
+function txHTML(e){
+ const c=categoryOf(e.category);const detail=e.note||Object.values(e.extra||{}).filter(Boolean).join(' · ')||c.name;
+ return `<div class="transaction"><div class="tx-icon">${c.icon}</div><div class="tx-main"><div class="tx-title">${escapeHTML(detail)}</div><div class="tx-meta">${c.name} · ${fmtDate(e.date)}${e.time?' · '+e.time:''}</div></div><div class="tx-amount">${money(e.amount)}</div></div>`;
+}
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+function renderHome(){
+ const now=isoDate(new Date()),month=now.slice(0,7);const todaySum=expenses.filter(e=>e.date===now).reduce((a,e)=>a+e.amount,0);const monthItems=expenses.filter(e=>e.date?.startsWith(month));const monthSum=monthItems.reduce((a,e)=>a+e.amount,0);
+ document.getElementById('monthTotal').textContent=money(monthSum);document.getElementById('todayTotal').textContent=money(todaySum);document.getElementById('monthCount').textContent=monthItems.length+' expenses';
+ document.getElementById('recentList').innerHTML=expenses.length?expenses.slice(0,4).map(txHTML).join(''):'<div class="empty"><b>No expenses yet</b>Your spending activity will show up here.</div>';
+}
+function renderHistory(){
+ const q=(document.getElementById('searchInput').value||'').toLowerCase(),m=document.getElementById('monthFilter').value;
+ const list=expenses.filter(e=>(!m||e.date?.startsWith(m))&&(!q||[e.note,e.category,...Object.values(e.extra||{})].join(' ').toLowerCase().includes(q)));
+ document.getElementById('historyList').innerHTML=list.length?list.map(e=>txHTML(e)+`<div style="display:flex;justify-content:flex-end;margin:-5px 4px 8px"><button class="danger" onclick="deleteExpense(${e.id})">Delete</button></div>`).join(''):'<div class="empty"><b>No matching expenses</b>Try a different search or month.</div>';
+}
+function deleteExpense(id){if(!confirm('Delete this expense?'))return;expenses=expenses.filter(e=>e.id!==id);localStorage.setItem('spendsnap_expenses',JSON.stringify(expenses));renderHome();renderHistory();toast('Expense deleted')}
+function renderSummary(){
+ const total=expenses.reduce((a,e)=>a+e.amount,0);document.getElementById('allTotal').textContent=money(total);document.getElementById('allCount').textContent=expenses.length+' expenses';
+ document.getElementById('summaryList').innerHTML=categories.map(c=>{const sum=expenses.filter(e=>e.category===c.id).reduce((a,e)=>a+e.amount,0);return `<div class="transaction"><div class="tx-icon">${c.icon}</div><div class="tx-main"><div class="tx-title">${c.name}</div><div class="tx-meta">${expenses.filter(e=>e.category===c.id).length} entries</div></div><div class="tx-amount">${money(sum)}</div></div>`}).join('');
+}
+function exportCSV(){
+ const rows=[['Date','Time','Category','Amount (INR)','Details','Note']];
+ expenses.forEach(e=>{const c=categoryOf(e.category);rows.push([e.date,e.time,c.name,e.amount,Object.values(e.extra||{}).join(' | '),e.note||''])});
+ const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='spendsnap-expenses.csv';a.click();URL.revokeObjectURL(url);
+}
+document.getElementById('searchInput').addEventListener('input',renderHistory);document.getElementById('monthFilter').addEventListener('change',renderHistory);
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1900)}
+renderCategories();renderHome();
+
+let deferredPrompt;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('installNote').style.display='block'});
+document.getElementById('installBtn').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById('installNote').style.display='none'});
+if('serviceWorker' in navigator && location.protocol!=='file:'){window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}))}
+</script>
+</body>
+</html>

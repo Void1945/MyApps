@@ -1,0 +1,19 @@
+{
+  "name": "SpendSnap Expense Tracker",
+  "short_name": "SpendSnap",
+  "description": "A simple offline-first personal expense tracker",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101411",
+  "theme_color": "#101411",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
