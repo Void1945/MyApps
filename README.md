@@ -9,17 +9,36 @@ A lightweight, mobile-first expense tracker designed for GitHub Pages.
 - Local device storage (localStorage)
 - CSV export
 - PWA manifest, app icon and offline service worker
+- Large microphone button fixed in the bottom navigation
+- Sherpa-ONNX WebAssembly speech recognition with an English Zipformer model
+- Local audio processing and an editable transcript/review step before saving
+- Voice engine/model cached on the device after first download
 
 ## Deploy to GitHub Pages
-1. Create a new GitHub repository.
-2. Upload all four files from this folder to the repository root.
+1. Extract this ZIP.
+2. Upload **all files**, including `sherpa-worker.js`, to the repository root. Replace the older files.
 3. Open **Settings → Pages**.
 4. Under **Build and deployment**, choose **Deploy from a branch**.
 5. Select `main` and `/ (root)`, then Save.
 6. Open the published HTTPS URL on your Android phone in Chrome.
-7. Choose **Install app** or **Add to Home screen** from Chrome's menu.
+7. Refresh SpendSnap. If it was already installed, close it fully and reopen it after the deployment updates.
 
-## Notes
-- Expenses are stored only in the browser on this device. Clearing site data can erase them.
+## First-time voice setup
+- The first time you tap the microphone, SpendSnap downloads about 40 MB of Sherpa-ONNX runtime and English model files from Hugging Face.
+- The files are cached in browser storage on this device. Later recognition runs locally and can work without internet, provided the browser has not cleared the cached site data.
+- The app does not upload recordings or transaction text.
+- Allow microphone permission when Chrome asks.
+- Speak one expense at a time, for example: “I spent 850 rupees on petrol at Indian Oil. I filled 7.5 litres.”
+- Check the extracted amount/category/details in the existing manual-entry form and press Save. Voice recognition does not save an expense automatically.
+
+## Important accuracy note
+The bundled model is an English Zipformer model trained on LibriSpeech read speech. Recognition of Indian English accents, brand names, background noise, and numbers may vary. Always review the transcript and amount before saving.
+
+## Privacy and storage
+- Speech recognition runs locally in the browser using WebAssembly. Audio is not sent to a speech API.
+- Expense data stays in this browser's local storage. Clearing site data can erase expenses and the downloaded model cache.
 - Export a CSV backup from the Summary screen periodically.
-- GitHub Pages must be accessed over HTTPS for PWA installation and service worker support.
+- GitHub Pages must be accessed over HTTPS for microphone access, PWA installation, and service worker support.
+
+## Model and runtime attribution
+Sherpa-ONNX and the English Zipformer model are Apache-2.0 licensed. Model files are downloaded from the pinned Hugging Face revision `909bffc2f4de5447907a9fd25161dd1170324f1d` of `wundr-ai/zipformer-small-librispeech-en-wasm`.

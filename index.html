@@ -46,6 +46,23 @@
     .danger{border:1px solid #663c3c;background:#2a1919;color:#ffaaaa;border-radius:11px;padding:8px 10px;font-size:11px}
     .toast{position:fixed;bottom:95px;left:50%;transform:translate(-50%,15px);opacity:0;background:#e5f8d2;color:#1b2b11;padding:11px 16px;border-radius:99px;font-size:12px;font-weight:800;z-index:10;transition:.2s;pointer-events:none;white-space:nowrap}.toast.show{opacity:1;transform:translate(-50%,0)}
     .install-note{display:none;background:#202b21;border:1px solid #3c5634;border-radius:16px;padding:13px;margin-top:18px;font-size:12px;color:#dcebd2}.install-note button{float:right;background:var(--green);border:0;border-radius:9px;padding:6px 10px;font-weight:800;color:#17210f}
+
+    .nav-inner{grid-template-columns:1fr 1.25fr 1fr 1fr;align-items:center}
+    .mic-nav{justify-self:center;width:62px;height:62px;border:0;border-radius:22px;background:var(--green);color:#17210f;font-size:27px;font-weight:900;box-shadow:0 8px 26px #b8f36b35;transform:translateY(-13px);display:grid;place-items:center}
+    .mic-nav:active{transform:translateY(-13px) scale(.96)}
+    .voice-panel{display:none;position:fixed;inset:0;z-index:20;background:#070a08d9;backdrop-filter:blur(10px);align-items:flex-end;justify-content:center;padding:18px}
+    .voice-panel.open{display:flex}
+    .voice-card{width:min(100%,520px);background:#1a211c;border:1px solid #354237;border-radius:26px;padding:22px;margin-bottom:env(safe-area-inset-bottom);box-shadow:0 18px 60px #0009}
+    .voice-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .voice-top h2{font-size:20px;margin:0}
+    .voice-close{width:38px;height:38px;border:1px solid var(--line);border-radius:12px;background:#111713;color:var(--text);font-size:20px}
+    .voice-status{font-size:13px;color:var(--muted);line-height:1.5;margin:8px 0 16px}
+    .record-button{width:76px;height:76px;border:0;border-radius:50%;background:var(--green);color:#17210f;font-size:30px;display:grid;place-items:center;margin:8px auto 14px;box-shadow:0 0 0 9px #b8f36b18}
+    .record-button.recording{background:#ff7777;color:#260b0b;animation:pulse 1.2s infinite}
+    @keyframes pulse{50%{box-shadow:0 0 0 17px #ff777722}}
+    .voice-transcript{width:100%;min-height:90px;resize:vertical;background:#111713;border:1px solid #303b33;border-radius:13px;padding:12px;color:var(--text);margin-top:8px}
+    .voice-note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:12px}
+    @media(min-width:600px){.mic-nav{width:66px;height:66px}}
     @media(min-width:600px){.app{padding-left:26px;padding-right:26px}.category{min-height:145px}.category:last-child{min-height:110px}.balance{padding:26px}.balance-amount{font-size:44px}}
   </style>
 </head>
@@ -108,9 +125,22 @@
 
 <nav class="bottom-nav"><div class="nav-inner">
   <button class="nav-item active" data-screen="homeScreen" onclick="showScreen('homeScreen')"><span>⌂</span>Home</button>
+  <button class="mic-nav" id="openVoiceBtn" aria-label="Add expense by voice" title="Add expense by voice">🎙</button>
   <button class="nav-item" data-screen="historyScreen" onclick="showScreen('historyScreen')"><span>≡</span>History</button>
   <button class="nav-item" data-screen="summaryScreen" onclick="showScreen('summaryScreen')"><span>◷</span>Summary</button>
 </div></nav>
+
+<div class="voice-panel" id="voicePanel" role="dialog" aria-modal="true" aria-labelledby="voiceTitle">
+  <div class="voice-card">
+    <div class="voice-top"><h2 id="voiceTitle">Voice expense</h2><button class="voice-close" id="closeVoiceBtn" aria-label="Close">×</button></div>
+    <p class="voice-status" id="voiceStatus">English voice recognition runs on this device. First setup downloads about 40 MB; the engine is cached for offline use afterwards.</p>
+    <button class="record-button" id="recordBtn" aria-label="Record voice" disabled>🎙</button>
+    <div class="eyebrow" style="text-align:center" id="recordLabel">PREPARING VOICE ENGINE</div>
+    <textarea class="voice-transcript" id="voiceTranscript" placeholder="Your recognised words will appear here. You can correct them before reviewing the expense."></textarea>
+    <button class="primary" id="parseVoiceBtn" type="button">Review expense details</button>
+    <p class="voice-note">Audio is processed on this device and is not uploaded. The speech engine and model are downloaded once and cached on this device.</p>
+  </div>
+</div>
 <div class="toast" id="toast">Expense saved</div>
 
 <script>
@@ -190,9 +220,141 @@ document.getElementById('searchInput').addEventListener('input',renderHistory);d
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1900)}
 renderCategories();renderHome();
 
-let deferredPrompt;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('installNote').style.display='block'});
-document.getElementById('installBtn').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById('installNote').style.display='none'});
-if('serviceWorker' in navigator && location.protocol!=='file:'){window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}))}
+const voicePanel = document.getElementById('voicePanel');
+const voiceStatus = document.getElementById('voiceStatus');
+const recordBtn = document.getElementById('recordBtn');
+const recordLabel = document.getElementById('recordLabel');
+const voiceTranscript = document.getElementById('voiceTranscript');
+const parseVoiceBtn = document.getElementById('parseVoiceBtn');
+let mediaRecorder = null, recordedChunks = [], activeStream = null, asrReady = false, asrLoading = false;
+const asrWorker = new Worker('./sherpa-worker.js');
+asrWorker.onmessage = (event) => {
+ const msg = event.data || {};
+ if (msg.type === 'progress') {
+   voiceStatus.textContent = msg.message || 'Preparing offline voice recognition…';
+ } else if (msg.type === 'ready') {
+   asrReady = true; asrLoading = false; recordBtn.disabled = false;
+   recordLabel.textContent = 'TAP TO RECORD';
+   voiceStatus.textContent = 'Ready. Speak clearly in English. Your audio stays on this device.';
+ } else if (msg.type === 'error') {
+   asrLoading = false; recordBtn.disabled = !asrReady; recordLabel.textContent = asrReady ? 'TAP TO RECORD AGAIN' : 'VOICE ENGINE ERROR';
+   voiceStatus.textContent = msg.message || 'Could not load the offline voice engine. Connect to the internet and try again.';
+ } else if (msg.type === 'result') {
+   voiceTranscript.value = (msg.text || '').trim();
+   voiceStatus.textContent = voiceTranscript.value ? 'Transcription complete. Correct anything needed, then review the expense.' : 'I could not recognise that recording. Try speaking a little closer to the phone.';
+   parseVoiceBtn.disabled = !voiceTranscript.value;
+   recordBtn.disabled = false; recordLabel.textContent = 'TAP TO RECORD AGAIN';
+ }
+};
+asrWorker.onerror = () => {
+ asrLoading = false; recordBtn.disabled = true;
+ voiceStatus.textContent = 'The offline speech engine could not start. Reload SpendSnap and try again.';
+};
+function initializeASR(){
+ if(asrReady || asrLoading) return;
+ asrLoading = true; recordBtn.disabled = true;
+ voiceStatus.textContent = 'Preparing Sherpa-ONNX. First setup downloads about 40 MB; it will be cached for offline use.';
+ recordLabel.textContent = 'DOWNLOADING / LOADING';
+ asrWorker.postMessage({type:'init'});
+}
+document.getElementById('openVoiceBtn').addEventListener('click',()=>{
+ voicePanel.classList.add('open'); initializeASR();
+});
+document.getElementById('closeVoiceBtn').addEventListener('click',closeVoice);
+voicePanel.addEventListener('click',e=>{if(e.target===voicePanel)closeVoice()});
+function closeVoice(){
+ if(mediaRecorder && mediaRecorder.state==='recording') mediaRecorder.stop();
+ if(activeStream) activeStream.getTracks().forEach(t=>t.stop());
+ activeStream=null; voicePanel.classList.remove('open');
+}
+async function decodeAndResample(blob){
+ const AudioCtx=window.AudioContext||window.webkitAudioContext;
+ if(!AudioCtx) throw new Error('Audio decoding is not supported in this browser.');
+ const ctx=new AudioCtx();
+ try{
+   const audio=await ctx.decodeAudioData(await blob.arrayBuffer());
+   const mono=new Float32Array(audio.length);
+   for(let ch=0;ch<audio.numberOfChannels;ch++){
+     const data=audio.getChannelData(ch);
+     for(let i=0;i<data.length;i++) mono[i]+=data[i]/audio.numberOfChannels;
+   }
+   if(audio.sampleRate===16000) return mono;
+   const ratio=audio.sampleRate/16000, out=new Float32Array(Math.floor(mono.length/ratio));
+   for(let i=0;i<out.length;i++){
+     const a=Math.floor(i*ratio), b=Math.min(mono.length,Math.max(a+1,Math.floor((i+1)*ratio)));
+     let sum=0; for(let j=a;j<b;j++) sum+=mono[j]; out[i]=sum/(b-a);
+   }
+   return out;
+ } finally { await ctx.close(); }
+}
+recordBtn.addEventListener('click',async()=>{
+ if(!asrReady){initializeASR();return;}
+ if(mediaRecorder && mediaRecorder.state==='recording'){mediaRecorder.stop();return;}
+ if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){
+   voiceStatus.textContent='Microphone recording is not supported here. Open SpendSnap in Chrome over HTTPS.';return;
+ }
+ try{
+   activeStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1, echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+   recordedChunks=[];
+   const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':(MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'');
+   mediaRecorder=new MediaRecorder(activeStream,mime?{mimeType:mime}:undefined);
+   mediaRecorder.ondataavailable=e=>{if(e.data && e.data.size)recordedChunks.push(e.data)};
+   mediaRecorder.onstop=async()=>{
+     if(activeStream) activeStream.getTracks().forEach(t=>t.stop()); activeStream=null;
+     recordBtn.classList.remove('recording');recordBtn.textContent='🎙';recordBtn.disabled=true;
+     recordLabel.textContent='TRANSCRIBING LOCALLY';
+     voiceStatus.textContent='Processing your recording on this device…';
+     try{
+       const blob=new Blob(recordedChunks,{type:mediaRecorder.mimeType||'audio/webm'}); recordedChunks=[];
+       const samples=await decodeAndResample(blob);
+       if(!samples.length) throw new Error('No audio was captured. Please try again.');
+       asrWorker.postMessage({type:'transcribe',samples},[samples.buffer]);
+     }catch(err){recordBtn.disabled=false;recordLabel.textContent='TAP TO RECORD AGAIN';voiceStatus.textContent=err.message||'Could not process this recording. Try again.';}
+   };
+   mediaRecorder.start();recordBtn.classList.add('recording');recordBtn.textContent='■';recordLabel.textContent='TAP TO STOP';
+   voiceStatus.textContent='Listening… Speak your expense in English, then tap stop.';
+ }catch(err){voiceStatus.textContent='Microphone permission was not granted, or the microphone is unavailable. Check Chrome site permissions.';}
+});
+function setExtra(id,value){const el=document.getElementById('extra_'+id);if(el && value!==undefined && value!==null) el.value=value;}
+function parseVoiceExpense(){
+ const spoken=voiceTranscript.value.trim();
+ if(!spoken){voiceStatus.textContent='No speech was recognised. Record again or enter the words above.';return;}
+ const amountPattern=/(?:₹|\b(?:rs\.?|inr|rupees?)\s*)(\d[\d,]*(?:\.\d{1,2})?)/i;
+ let amountMatch=spoken.match(amountPattern);
+ if(!amountMatch) amountMatch=spoken.match(/\b(\d[\d,]*(?:\.\d{1,2})?)\b/);
+ if(!amountMatch){voiceStatus.textContent='I could not find the amount. Please say an amount, for example “850 rupees”.';return;}
+ let category='other'; const lower=spoken.toLowerCase();
+ if(/petrol|fuel|diesel|gas station|litre|liter/.test(lower)) category='petrol';
+ else if(/bike|motorcycle|service|engine oil|repair|tyre|tire|chain lube/.test(lower)) category='bike';
+ else if(/food|lunch|dinner|breakfast|snack|coffee|tea|restaurant|meal|biriyani|biryani/.test(lower)) category='food';
+ else if(/amazon|flipkart|online order|ordered|shopping|purchase|bought/.test(lower)) category='online';
+ const amount=Number(amountMatch[1].replace(/,/g,''));
+ if(!Number.isFinite(amount)||amount<=0){voiceStatus.textContent='The amount does not look valid. Please correct the sentence.';return;}
+ const clean=spoken.replace(amountMatch[0],'').replace(/\s+/g,' ').trim();
+ openEntry(category);
+ document.getElementById('amount').value=amount.toFixed(2).replace(/\.00$/,'');
+ document.getElementById('note').value=clean.slice(0,100);
+ if(category==='online'){
+   const item=spoken.match(/(?:ordered|bought|purchased)\s+(.+?)\s+(?:from|on)\s+/i);
+   const store=spoken.match(/\b(?:from|on)\s+(amazon|flipkart|myntra|meesho|ajio|tatacliq)\b/i);
+   setExtra('item',item?item[1]:clean.slice(0,70));setExtra('store',store?store[1]:undefined);
+ }else if(category==='petrol'){
+   const litres=spoken.match(/(\d+(?:\.\d+)?)\s*(?:litres?|liters?|l\b)/i);
+   const odo=spoken.match(/(?:odometer\s*(?:is|at)?\s*|\b)(\d[\d,]{2,})\s*(?:km|kilomet(?:er|re)s?)/i);
+   setExtra('litres',litres?litres[1]:undefined);setExtra('odometer',odo?odo[1].replace(/,/g,''):undefined);
+ }else if(category==='bike'){
+   let type='Other'; if(/service/.test(lower))type='Service';else if(/repair|puncture/.test(lower))type='Repairs';else if(/accessor|helmet|glove|bag/.test(lower))type='Accessories';else if(/maintenance|oil|chain|brake|tyre|tire/.test(lower))type='Maintenance';
+   setExtra('bikeType',type);setExtra('item',clean.slice(0,90));
+ }else if(category==='food'){
+   let meal='Other'; if(/breakfast|morning/.test(lower))meal='Breakfast';else if(/lunch/.test(lower))meal='Lunch';else if(/dinner|supper/.test(lower))meal='Dinner';else if(/snack/.test(lower))meal='Snacks';else if(/coffee|tea|juice|drink/.test(lower))meal='Drinks';
+   setExtra('meal',meal);
+   const place=spoken.match(/\b(?:at|from)\s+([A-Z][\w&' -]{2,})/);setExtra('place',place?place[1].slice(0,45):undefined);
+ }else{setExtra('item',clean.slice(0,90));}
+ voicePanel.classList.remove('open');toast('Review the details, then save');
+}
+parseVoiceBtn.addEventListener('click',parseVoiceExpense);
+parseVoiceBtn.disabled=true;
+voiceTranscript.addEventListener('input',()=>{parseVoiceBtn.disabled=!voiceTranscript.value.trim();});
 </script>
 </body>
 </html>
