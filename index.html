@@ -63,16 +63,135 @@
     .voice-transcript{width:100%;min-height:90px;resize:vertical;background:#111713;border:1px solid #303b33;border-radius:13px;padding:12px;color:var(--text);margin-top:8px}
     .voice-note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:12px}
 
-    .history-actions{display:flex;justify-content:flex-end;gap:8px;margin:-4px 4px 9px}
+    .history-actions{display:flex;justify-content:flex-end;gap:8px;margin:5px 4px 13px}.history-entry{background:#151c17;border:1px solid #29352d;border-radius:18px;padding:8px 9px 2px;margin-bottom:10px}.history-entry .transaction{border:0;background:transparent;padding:7px 4px}
     .secondary{width:100%;border:1px solid #435044;border-radius:14px;background:#202923;color:var(--text);font-weight:750;padding:13px;margin-top:10px}
     .backup-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
     .backup-caption{font-size:11px;color:var(--muted);line-height:1.5;margin:10px 2px}
     .storage-status{font-size:11px;color:var(--muted);margin-top:8px}
     @media(min-width:600px){.mic-nav{width:66px;height:66px}}
     @media(min-width:600px){.app{padding-left:26px;padding-right:26px}.category{min-height:145px}.category:last-child{min-height:110px}.balance{padding:26px}.balance-amount{font-size:44px}}
+
+    body.home-active{overflow:hidden}
+    body.home-active .app{height:calc(100dvh - env(safe-area-inset-bottom));overflow:hidden}
+    body.home-active main{height:calc(100% - 53px);overflow:hidden}
+    body.home-active #homeScreen{height:100%;overflow:hidden}
+    /* SpendSnap compact home refresh */
+    .app{max-width:620px;padding:env(safe-area-inset-top) 16px calc(78px + env(safe-area-inset-bottom))}
+    .topbar{padding:9px 2px 12px;min-height:53px}
+    .brand{font-size:19px}
+    .brand-mark{width:32px;height:32px;border-radius:11px}
+    #homeScreen .balance{padding:15px 18px 14px;border-radius:21px;box-shadow:0 9px 24px #0003}
+    #homeScreen .balance .eyebrow{font-size:10px;letter-spacing:1.2px}
+    #homeScreen .balance-amount{font-size:31px;line-height:1.05;margin:5px 0 10px;letter-spacing:-1.2px}
+    #homeScreen .balance-foot{gap:28px}
+    #homeScreen .metric small{font-size:9px;margin-bottom:2px}
+    #homeScreen .metric strong{font-size:13px}
+    #homeScreen .section-head{margin:17px 2px 10px;align-items:center}
+    #homeScreen .section-head h2{font-size:16px}
+    #homeScreen .section-head .eyebrow{font-size:9px;letter-spacing:1px}
+    #homeScreen .category-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+    #homeScreen .category{min-height:91px;height:91px;padding:11px 12px;border-radius:17px;display:grid;grid-template-columns:36px minmax(0,1fr);grid-template-rows:1fr auto;column-gap:10px;align-items:center}
+    #homeScreen .category:last-child{grid-column:auto;min-height:91px;height:91px}
+    #homeScreen .cat-icon{grid-column:1;grid-row:1 / span 2;width:36px;height:36px;border-radius:12px;font-size:19px;margin:0}
+    #homeScreen .cat-title{grid-column:2;grid-row:1;align-self:end;font-size:13px;line-height:1.15;overflow-wrap:anywhere}
+    #homeScreen .cat-sub{grid-column:2;grid-row:2;align-self:start;font-size:10px;line-height:1.2;margin-top:3px;overflow-wrap:anywhere}
+    #homeScreen .cat-arrow{right:9px;top:8px;font-size:13px}
+    #homeScreen .category:focus-visible,.nav-item:focus-visible,.mic-nav:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+    .bottom-nav{padding:7px 16px calc(7px + env(safe-area-inset-bottom))}
+    .nav-inner{width:min(100%,470px);gap:5px}
+    .nav-item{padding:4px 5px;font-size:10px}
+    .nav-item span{font-size:18px;margin-bottom:1px}
+    .mic-nav{width:54px;height:54px;border-radius:19px;font-size:24px;transform:translateY(-8px)}
+    .mic-nav:active{transform:translateY(-8px) scale(.96)}
+    .toast{bottom:82px}
+    @media(max-height:700px){
+      .app{padding-top:env(safe-area-inset-top);padding-bottom:calc(70px + env(safe-area-inset-bottom))}
+      .topbar{padding-top:5px;padding-bottom:8px;min-height:42px}
+      #homeScreen .balance{padding:11px 15px}
+      #homeScreen .balance-amount{font-size:27px;margin:3px 0 7px}
+      #homeScreen .section-head{margin:12px 2px 8px}
+      #homeScreen .category{height:78px;min-height:78px}
+      #homeScreen .category:last-child{height:78px;min-height:78px}
+      .bottom-nav{padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
+      .mic-nav{width:48px;height:48px}
+    }
+    @media(min-width:600px){
+      .app{padding-left:22px;padding-right:22px}
+      #homeScreen .category{height:96px;min-height:96px}
+      #homeScreen .category:last-child{height:96px;min-height:96px}
+    }
+
+
+    /* All-screen usability refresh */
+    :root{--surface-raised:#202923;--surface-input:#121914;--focus-ring:#b8f36b}
+    html{scroll-behavior:smooth}
+    body{line-height:1.4}
+    .app{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+    .screen:not(#homeScreen){padding-bottom:18px}
+    .screen-head{padding:8px 0 18px;align-items:center}
+    .screen-head h2{font-size:22px;line-height:1.2}
+    .screen-head p{font-size:13px;line-height:1.35}
+    .back{width:46px;height:46px;min-width:46px;border-radius:15px;font-size:24px;display:grid;place-items:center}
+    .form-card{padding:18px;border-radius:22px;box-shadow:0 8px 24px #0002}
+    .field{margin-bottom:17px}
+    .field label{font-size:11px;letter-spacing:.55px;line-height:1.35;margin-bottom:7px}
+    .control{min-height:50px;padding:13px 14px;font-size:15px;border-radius:13px;background:var(--surface-input)}
+    select.control{appearance:auto}
+    textarea.control{min-height:100px;resize:vertical}
+    .amount-input{font-size:28px;min-height:60px}
+    .two-col{gap:10px}
+    .primary{min-height:52px;padding:15px 18px;font-size:15px;border-radius:15px;letter-spacing:.1px}
+    .secondary{min-height:48px;padding:12px 14px;font-size:13px;border-radius:13px}
+    .hint{font-size:12px;line-height:1.55;margin:12px 3px 4px}
+    .history-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px, .8fr);gap:9px;margin-bottom:14px}
+    .history-tools .control{min-width:0}
+    #historyList{gap:0}
+    #historyList .transaction{padding:13px 12px;min-height:70px;border-radius:16px}
+    #historyList .tx-title{font-size:14px;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
+    #historyList .tx-meta{font-size:11px;line-height:1.35}
+    #historyList .tx-amount{font-size:14px;margin-left:5px}
+    .history-actions{margin:5px 2px 13px;justify-content:flex-end;gap:9px}
+    .history-actions button{min-height:38px;padding:8px 15px;font-size:12px}
+    .danger{min-height:38px;padding:8px 13px;font-size:12px}
+    .empty{padding:28px 18px;font-size:13px;line-height:1.5}
+    #summaryScreen .balance{padding:19px 20px;border-radius:22px;margin-bottom:18px!important}
+    #summaryScreen .balance-amount{font-size:34px;line-height:1.15;margin:7px 0 10px}
+    #summaryScreen .metric strong{font-size:14px}
+    #summaryScreen .recent-list{gap:9px}
+    #summaryScreen .transaction{padding:13px;min-height:68px;border-radius:16px}
+    #summaryScreen .tx-title{font-size:14px}
+    #summaryScreen .tx-meta{font-size:11px}
+    #summaryScreen .tx-amount{font-size:14px}
+    #summaryScreen .primary{margin-top:18px}
+    #summaryScreen .section-head{margin:20px 2px 11px}
+    #summaryScreen .backup-row{gap:10px}
+    #summaryScreen .backup-row .secondary{margin:0;min-height:50px}
+    #summaryScreen .backup-caption{font-size:12px;line-height:1.5;margin:10px 2px}
+    #summaryScreen .storage-status{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#151c17;font-size:11px;line-height:1.45}
+    .voice-card{max-height:calc(100dvh - 24px);overflow-y:auto;padding:20px;border-radius:24px}
+    .voice-status{font-size:13px;line-height:1.5}
+    .voice-transcript{min-height:104px;font-size:14px;line-height:1.45}
+    .record-button{width:82px;height:82px}
+    button{ -webkit-tap-highlight-color:transparent}
+    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+    @media(max-width:380px){
+      .app{padding-left:12px;padding-right:12px}
+      .form-card{padding:14px}
+      .screen-head h2{font-size:20px}
+      .history-tools{grid-template-columns:minmax(0,1fr) 126px}
+      .two-col{gap:8px}
+      .field label{font-size:10px}
+      #summaryScreen .backup-row{grid-template-columns:1fr}
+    }
+    @media(min-width:600px){
+      .screen:not(#homeScreen){max-width:580px;margin:0 auto}
+      .form-card{padding:22px}
+      .history-tools{grid-template-columns:minmax(0,1fr) 170px}
+    }
+
   </style>
 </head>
-<body>
+<body class="home-active">
 <div class="app">
   <header class="topbar">
     <div class="brand"><div class="brand-mark">₹</div> SpendSnap</div>
@@ -81,8 +200,6 @@
 
   <main>
     <section class="screen active" id="homeScreen">
-      <div class="eyebrow">Your money, at a glance</div>
-      <h1>Keep track.<br>Stay in control.</h1>
       <div class="balance">
         <div class="eyebrow">Spent this month</div>
         <div class="balance-amount" id="monthTotal">₹0</div>
@@ -93,8 +210,6 @@
       </div>
       <div class="section-head"><h2>Add an expense</h2><span class="eyebrow">Choose a category</span></div>
       <div class="category-grid" id="categoryGrid"></div>
-      <div class="section-head"><h2>Recent activity</h2><button onclick="showScreen('historyScreen')">View all →</button></div>
-      <div class="recent-list" id="recentList"></div>
       <div class="install-note" id="installNote">Add SpendSnap to your home screen for quick access. <button id="installBtn">Install</button></div>
     </section>
 
@@ -110,7 +225,7 @@
         <div class="field"><label for="note">NOTE (OPTIONAL)</label><input class="control" id="note" type="text" maxlength="100" placeholder="Add a short note"></div>
         <button class="primary" type="submit">Save expense</button>
       </form>
-      <p class="hint">Your entry is saved on this device. No account or internet connection needed.</p>
+      <p class="hint">Your expense is saved privately on this device. You can edit it later from History.</p>
     </section>
 
     <section class="screen" id="historyScreen">
@@ -260,6 +375,7 @@ function renderCategories(){
  document.getElementById('categoryGrid').innerHTML = categories.map(c=>`<button class="category" style="--tile:${c.color}12;--accent:${c.color}" onclick="openEntry('${c.id}')"><span class="cat-arrow">↗</span><span class="cat-icon">${c.icon}</span><div class="cat-title">${c.name}</div><div class="cat-sub">${c.sub}</div></button>`).join('');
 }
 function showScreen(id){
+ document.body.classList.toggle('home-active',id==='homeScreen');
  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));
  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.screen===id));
  if(id==='historyScreen') renderHistory();
@@ -321,12 +437,11 @@ function escapeHTML(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<'
 function renderHome(){
  const now=isoDate(new Date()),month=now.slice(0,7);const todaySum=expenses.filter(e=>e.date===now).reduce((a,e)=>a+e.amount,0);const monthItems=expenses.filter(e=>e.date?.startsWith(month));const monthSum=monthItems.reduce((a,e)=>a+e.amount,0);
  document.getElementById('monthTotal').textContent=money(monthSum);document.getElementById('todayTotal').textContent=money(todaySum);document.getElementById('monthCount').textContent=monthItems.length+' expenses';
- document.getElementById('recentList').innerHTML=expenses.length?expenses.slice(0,4).map(txHTML).join(''):'<div class="empty"><b>No expenses yet</b>Your spending activity will show up here.</div>';
 }
 function renderHistory(){
  const q=(document.getElementById('searchInput').value||'').toLowerCase(),m=document.getElementById('monthFilter').value;
  const list=expenses.filter(e=>(!m||e.date?.startsWith(m))&&(!q||[e.note,e.category,...Object.values(e.extra||{})].join(' ').toLowerCase().includes(q)));
- document.getElementById('historyList').innerHTML=list.length?list.map(e=>txHTML(e)+`<div class="history-actions"><button class="secondary" style="width:auto;margin:0;padding:8px 13px" onclick='editExpense(${JSON.stringify(e.id)})'>Edit</button><button class="danger" onclick='deleteExpense(${JSON.stringify(e.id)})'>Delete</button></div>`).join(''):'<div class="empty"><b>No matching expenses</b>Try a different search or month.</div>';
+ document.getElementById('historyList').innerHTML=list.length?list.map(e=>`<div class="history-entry">${txHTML(e)}<div class="history-actions"><button class="secondary" style="width:auto;margin:0" onclick='editExpense(${JSON.stringify(e.id)})'>✎ Edit</button><button class="danger" onclick='deleteExpense(${JSON.stringify(e.id)})'>Delete</button></div></div>`).join(''):'<div class="empty"><b>No expenses found</b>Change the search or month filter to see other entries.</div>';
 }
 function editExpense(id){
  const e=expenses.find(x=>String(x.id)===String(id));if(!e)return;
@@ -350,7 +465,7 @@ async function deleteExpense(id){
 }
 function renderSummary(){
  const total=expenses.reduce((a,e)=>a+e.amount,0);document.getElementById('allTotal').textContent=money(total);document.getElementById('allCount').textContent=expenses.length+' expenses';
- document.getElementById('summaryList').innerHTML=categories.map(c=>{const sum=expenses.filter(e=>e.category===c.id).reduce((a,e)=>a+e.amount,0);return `<div class="transaction"><div class="tx-icon">${c.icon}</div><div class="tx-main"><div class="tx-title">${c.name}</div><div class="tx-meta">${expenses.filter(e=>e.category===c.id).length} entries</div></div><div class="tx-amount">${money(sum)}</div></div>`}).join('');
+ document.getElementById('summaryList').innerHTML=categories.map(c=>{const items=expenses.filter(e=>e.category===c.id);const sum=items.reduce((a,e)=>a+e.amount,0);return `<div class="transaction"><div class="tx-icon">${c.icon}</div><div class="tx-main"><div class="tx-title">${c.name}</div><div class="tx-meta">${items.length} ${items.length===1?'expense':'expenses'} recorded</div></div><div class="tx-amount">${money(sum)}</div></div>`}).join('');
 }
 function downloadBlob(blob,filename){
  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);

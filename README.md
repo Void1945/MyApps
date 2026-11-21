@@ -6,7 +6,7 @@ A lightweight, mobile-first expense tracker designed for GitHub Pages.
 - Five quick-entry categories: Online Orders, Petrol, Bike Expense, Food, Other Expense
 - Dashboard totals for today and the current month
 - Recent activity, searchable history, category summary
-- Local device storage (localStorage)
+- Local device storage (IndexedDB, with one-time import from the older localStorage version)
 - CSV export
 - PWA manifest, app icon and offline service worker
 - Large microphone button fixed in the bottom navigation
@@ -36,8 +36,8 @@ The bundled model is an English Zipformer model trained on LibriSpeech read spee
 
 ## Privacy and storage
 - Speech recognition runs locally in the browser using WebAssembly. Audio is not sent to a speech API.
-- Expense data stays in this browser's local storage. Clearing site data can erase expenses and the downloaded model cache.
-- Export a CSV backup from the Summary screen periodically.
+- Expense data stays in this browser profile's IndexedDB database. Clearing site data can erase expenses and the downloaded model cache.
+- Download a JSON backup from the Summary screen periodically; CSV export is also available.
 - GitHub Pages must be accessed over HTTPS for microphone access, PWA installation, and service worker support.
 
 ## Model and runtime attribution
@@ -57,3 +57,24 @@ If you previously downloaded the voice model, deploy this update and then use Ch
 - CSV export remains available.
 - Clearing browser/site data can still delete the IndexedDB database. Download a JSON backup periodically. A PWA cannot silently write arbitrary files into Android storage; the user initiates backup download and restore file selection.
 - Keep the same GitHub Pages origin when updating so the existing localStorage migration can find the previous app's data.
+
+
+## UI refresh
+- Removed the introductory "Your money, at a glance" and "Keep track. Stay in control." text.
+- Removed the recent-activity preview from Home to keep the five expense category buttons visible without scrolling.
+- Reworked the Home dashboard into a compact layout with the monthly total, today's total, entry count, five category cards, and the fixed bottom navigation/microphone.
+- Added short-screen responsive sizing and safe-area spacing. Other screens (History, Summary, entry forms, and voice panel) remain scrollable where needed.
+
+
+## All-screen usability refresh
+- Refined entry forms with consistent labels, larger input targets, clearer spacing and prominent save actions.
+- Refined History cards, dates, amounts, search/filter sizing, and separate Edit/Delete actions.
+- Refined Summary totals, category breakdown rows, and backup/restore controls.
+- Improved voice panel sizing and scrolling on short screens.
+- Added keyboard focus indicators and narrow-screen responsive adjustments.
+- Existing IndexedDB storage, one-time legacy migration, JSON backup/restore, CSV export, expense edit/delete, and Sherpa worker are retained.
+
+
+## Verification notes
+- JavaScript syntax and ZIP structure were checked for this build.
+- The app still needs a real-device test on Android Chrome, including microphone permission, first-time model download, offline voice recognition, IndexedDB persistence, and JSON restore. Do not treat voice recognition as verified until those tests pass.
