@@ -1,4 +1,4 @@
-const CACHE='spendsnap-v7-all-ui';
+const CACHE='spendsnap-v9-home-voice-inline';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icon.svg','./sherpa-worker.js'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('spendsnap-v') && k!==CACHE).map(k=>caches.delete(k))))));

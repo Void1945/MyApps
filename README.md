@@ -78,3 +78,11 @@ If you previously downloaded the voice model, deploy this update and then use Ch
 ## Verification notes
 - JavaScript syntax and ZIP structure were checked for this build.
 - The app still needs a real-device test on Android Chrome, including microphone permission, first-time model download, offline voice recognition, IndexedDB persistence, and JSON restore. Do not treat voice recognition as verified until those tests pass.
+
+
+## Home screen voice entry update (v9)
+- Category buttons have larger tap targets.
+- Voice entry is embedded below the category buttons on the home screen; it does not open a separate page or modal.
+- Tapping Speak an expense expands the inline voice area, initializes the local speech engine if needed, and automatically requests microphone access and starts recording when the engine is ready.
+- Tap the recording control to stop, review the recognised text, then choose Review expense details.
+- The home screen can scroll when the inline voice area is expanded.

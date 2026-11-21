@@ -10,6 +10,10 @@ const FILES = [
 const CACHE_NAME = 'spendsnap-sherpa-assets-v1';
 let recognizer = null, initializing = false, ready = false;
 let wasmUrl = '', dataUrl = '', moduleRef = null;
+// importScripts() evaluates classic scripts in the worker's shared global scope.
+// Keep explicit guards so a failed/retried init never redeclares OfflineStream.
+let sherpaApiLoaded = false;
+let wasmGlueStarted = false;
 function post(type, extra={}) { self.postMessage({type, ...extra}); }
 async function assetBlobUrl(file, index, total) {
   const url = `${BASE}/${file}`;
@@ -46,7 +50,10 @@ async function init(){
     for(let i=0;i<FILES.length;i++) urls[FILES[i]]=await assetBlobUrl(FILES[i],i,FILES.length);
     post('progress',{message:'Voice files are cached. Starting the local recognition engine…'});
     // The API wrapper must be present before the Emscripten module is initialized.
-    importScripts(urls['sherpa-onnx-asr.js']);
+    if (!sherpaApiLoaded) {
+      importScripts(urls['sherpa-onnx-asr.js']);
+      sherpaApiLoaded = true;
+    }
     moduleRef={
       locateFile:(path)=>{
         if(path.endsWith('.wasm')) return urls['sherpa-onnx-wasm-main-asr-small.wasm'];
@@ -108,6 +115,10 @@ async function init(){
       onAbort:(reason)=>{initializing=false;post('error',{message:`Sherpa runtime stopped: ${reason||'unknown error'}`});}
     };
     self.Module=moduleRef;
+    if (wasmGlueStarted) {
+      throw new Error('The voice runtime already started but did not finish. Close and reopen SpendSnap to restart the voice engine.');
+    }
+    wasmGlueStarted = true;
     importScripts(urls['sherpa-onnx-wasm-main-asr-small.js']);
     // Some Emscripten builds finish initialization on the next task; onRuntimeInitialized handles it.
   }catch(err){initializing=false;post('error',{message:err.message||'Could not load the offline voice engine.'});}
