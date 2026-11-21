@@ -62,6 +62,12 @@
     @keyframes pulse{50%{box-shadow:0 0 0 17px #ff777722}}
     .voice-transcript{width:100%;min-height:90px;resize:vertical;background:#111713;border:1px solid #303b33;border-radius:13px;padding:12px;color:var(--text);margin-top:8px}
     .voice-note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:12px}
+
+    .history-actions{display:flex;justify-content:flex-end;gap:8px;margin:-4px 4px 9px}
+    .secondary{width:100%;border:1px solid #435044;border-radius:14px;background:#202923;color:var(--text);font-weight:750;padding:13px;margin-top:10px}
+    .backup-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .backup-caption{font-size:11px;color:var(--muted);line-height:1.5;margin:10px 2px}
+    .storage-status{font-size:11px;color:var(--muted);margin-top:8px}
     @media(min-width:600px){.mic-nav{width:66px;height:66px}}
     @media(min-width:600px){.app{padding-left:26px;padding-right:26px}.category{min-height:145px}.category:last-child{min-height:110px}.balance{padding:26px}.balance-amount{font-size:44px}}
   </style>
@@ -118,7 +124,14 @@
       <div class="balance" style="margin-bottom:16px"><div class="eyebrow">Total recorded</div><div class="balance-amount" id="allTotal">₹0</div><div class="metric"><small>ALL TIME ENTRIES</small><strong id="allCount">0 expenses</strong></div></div>
       <div class="recent-list" id="summaryList"></div>
       <button class="primary" onclick="exportCSV()">Export expenses as CSV</button>
-      <p class="hint">Keep a backup by exporting your expenses periodically.</p>
+      <div class="section-head"><h2>Phone backup</h2><span class="eyebrow">JSON</span></div>
+      <div class="backup-row">
+        <button class="secondary" onclick="exportJSON()">Download backup</button>
+        <button class="secondary" onclick="document.getElementById('jsonImport').click()">Restore backup</button>
+      </div>
+      <input id="jsonImport" type="file" accept=".json,application/json" hidden>
+      <p class="backup-caption">Download a backup file to your phone's Downloads folder. Keep it safe to restore your expenses if you change phones or clear browser data.</p>
+      <div class="storage-status" id="storageStatus">Expense database: preparing local storage…</div>
     </section>
   </main>
 </div>
@@ -151,8 +164,91 @@ const categories = [
  {id:'food',name:'Food',sub:'Meals, snacks & drinks',icon:'🍜',color:'#e58f9b',fields:[{id:'meal',label:'MEAL TYPE',type:'select',options:['Breakfast','Lunch','Dinner','Snacks','Drinks','Other']},{id:'place',label:'PLACE (OPTIONAL)',placeholder:'Restaurant or shop',type:'text'}]},
  {id:'other',name:'Other Expense',sub:'Everything else',icon:'💳',color:'#b6a0e8',fields:[{id:'item',label:'WHAT WAS IT FOR?',placeholder:'e.g. Electricity bill',type:'text'},{id:'payment',label:'PAYMENT METHOD',type:'select',options:['UPI','Cash','Card','Bank transfer','Other']}]}
 ];
-let expenses = JSON.parse(localStorage.getItem('spendsnap_expenses') || '[]');
+let expenses = [];
 let selectedCategory = 'online';
+let editingExpenseId = null;
+let spendSnapDB = null;
+const DB_NAME = 'SpendSnapDB';
+const DB_VERSION = 1;
+const EXPENSE_STORE = 'expenses';
+const META_STORE = 'meta';
+
+function openSpendSnapDB(){
+ return new Promise((resolve,reject)=>{
+   const request=indexedDB.open(DB_NAME,DB_VERSION);
+   request.onupgradeneeded=()=>{
+     const db=request.result;
+     if(!db.objectStoreNames.contains(EXPENSE_STORE)) db.createObjectStore(EXPENSE_STORE,{keyPath:'id'});
+     if(!db.objectStoreNames.contains(META_STORE)) db.createObjectStore(META_STORE,{keyPath:'key'});
+   };
+   request.onsuccess=()=>resolve(request.result);
+   request.onerror=()=>reject(request.error||new Error('Could not open the local expense database.'));
+ });
+}
+function dbTransaction(storeNames,mode,work){
+ return new Promise((resolve,reject)=>{
+   const tx=spendSnapDB.transaction(storeNames,mode);
+   let result;
+   try{result=work(tx);}catch(err){reject(err);return;}
+   tx.oncomplete=()=>resolve(result);
+   tx.onerror=()=>reject(tx.error||new Error('Database operation failed.'));
+   tx.onabort=()=>reject(tx.error||new Error('Database operation was cancelled.'));
+ });
+}
+function dbGetAll(){
+ return new Promise((resolve,reject)=>{
+   const req=spendSnapDB.transaction(EXPENSE_STORE,'readonly').objectStore(EXPENSE_STORE).getAll();
+   req.onsuccess=()=>resolve(req.result||[]);
+   req.onerror=()=>reject(req.error);
+ });
+}
+async function dbPut(expense){
+ await dbTransaction([EXPENSE_STORE],'readwrite',tx=>tx.objectStore(EXPENSE_STORE).put(expense));
+}
+async function dbDelete(id){
+ await dbTransaction([EXPENSE_STORE],'readwrite',tx=>tx.objectStore(EXPENSE_STORE).delete(id));
+}
+async function migrateLegacyExpenses(){
+ return new Promise((resolve,reject)=>{
+   const tx=spendSnapDB.transaction([EXPENSE_STORE,META_STORE],'readwrite');
+   const meta=tx.objectStore(META_STORE);
+   const marker=meta.get('legacyLocalStorageMigrated');
+   marker.onsuccess=()=>{
+     if(marker.result?.value===true) return;
+     let old=[];
+     try{old=JSON.parse(localStorage.getItem('spendsnap_expenses')||'[]');}catch(e){old=[];}
+     if(Array.isArray(old)){
+       const store=tx.objectStore(EXPENSE_STORE);
+       old.forEach(item=>{
+         if(item && item.id!==undefined && Number(item.amount)>0 && item.category && item.date){
+           store.put({...item,amount:Number(item.amount)});
+         }
+       });
+     }
+     meta.put({key:'legacyLocalStorageMigrated',value:true,completedAt:new Date().toISOString()});
+   };
+   tx.oncomplete=resolve;
+   tx.onerror=()=>reject(tx.error||new Error('Could not migrate existing expenses.'));
+   tx.onabort=()=>reject(tx.error||new Error('Migration was cancelled.'));
+ });
+}
+async function initialiseStorage(){
+ try{
+   if(!('indexedDB' in window)) throw new Error('IndexedDB is unavailable in this browser.');
+   spendSnapDB=await openSpendSnapDB();
+   await migrateLegacyExpenses();
+   expenses=await dbGetAll();
+   expenses.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.time||'').localeCompare(String(a.time||''))||Number(b.id)-Number(a.id));
+   const status=document.getElementById('storageStatus');
+   if(status) status.textContent='Expense database: stored locally on this device (IndexedDB).';
+ }catch(err){
+   console.error('SpendSnap storage initialisation failed:',err);
+   const status=document.getElementById('storageStatus');
+   if(status) status.textContent='Local database could not be opened: '+(err.message||'unknown error');
+   toast('Could not open expense storage. Your previous data has not been deleted.');
+ }
+}
+
 const money = n => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(Number(n)||0);
 const today = new Date();
 const isoDate = d => {const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)};
@@ -171,6 +267,7 @@ function showScreen(id){
  window.scrollTo({top:0,behavior:'smooth'});
 }
 function openEntry(id){
+ editingExpenseId=null;
  selectedCategory=id; const c=categories.find(x=>x.id===id);
  document.getElementById('entryTitle').textContent=c.name;
  document.getElementById('entrySubtitle').textContent='Add the details of your '+c.name.toLowerCase();
@@ -179,15 +276,40 @@ function openEntry(id){
    return `<div class="field"><label for="extra_${f.id}">${f.label}</label>${input}</div>`;
  }).join('');
  document.getElementById('expenseForm').reset();
+ document.querySelector('#expenseForm .primary').textContent='Save expense';
+ document.getElementById('entryTitle').textContent=c.name;
  document.getElementById('date').value=isoDate(new Date());document.getElementById('time').value=new Date().toTimeString().slice(0,5);
  showScreen('entryScreen');setTimeout(()=>document.getElementById('amount').focus(),250);
 }
-document.getElementById('expenseForm').addEventListener('submit',e=>{
- e.preventDefault();const c=categories.find(x=>x.id===selectedCategory);const amount=Number(document.getElementById('amount').value);
+document.getElementById('expenseForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ if(!spendSnapDB){toast('Expense database is not ready yet');return;}
+ const c=categories.find(x=>x.id===selectedCategory);
+ const amount=Number(document.getElementById('amount').value);
  if(!amount||amount<=0)return;
  const extra={};c.fields.forEach(f=>{const el=document.getElementById('extra_'+f.id);if(el&&el.value)extra[f.id]=el.value});
- expenses.unshift({id:Date.now(),category:selectedCategory,amount,date:document.getElementById('date').value,time:document.getElementById('time').value,note:document.getElementById('note').value.trim(),extra});
- localStorage.setItem('spendsnap_expenses',JSON.stringify(expenses));renderHome();showScreen('homeScreen');toast('Expense saved successfully');
+ const record={
+   id:editingExpenseId!==null?editingExpenseId:Date.now(),
+   category:selectedCategory,
+   amount,
+   date:document.getElementById('date').value,
+   time:document.getElementById('time').value,
+   note:document.getElementById('note').value.trim(),
+   extra
+ };
+ try{
+   await dbPut(record);
+   if(editingExpenseId!==null){
+     expenses=expenses.map(x=>x.id===editingExpenseId?record:x);
+     toast('Expense updated successfully');
+   }else{
+     expenses.unshift(record);
+     toast('Expense saved successfully');
+   }
+   editingExpenseId=null;
+   expenses.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.time||'').localeCompare(String(a.time||''))||Number(b.id)-Number(a.id));
+   renderHome();showScreen('homeScreen');
+ }catch(err){console.error(err);toast('Could not save expense. Please try again.');}
 });
 function categoryOf(id){return categories.find(c=>c.id===id)||categories[4]}
 function fmtDate(s){if(!s)return '';return new Date(s+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
@@ -204,21 +326,69 @@ function renderHome(){
 function renderHistory(){
  const q=(document.getElementById('searchInput').value||'').toLowerCase(),m=document.getElementById('monthFilter').value;
  const list=expenses.filter(e=>(!m||e.date?.startsWith(m))&&(!q||[e.note,e.category,...Object.values(e.extra||{})].join(' ').toLowerCase().includes(q)));
- document.getElementById('historyList').innerHTML=list.length?list.map(e=>txHTML(e)+`<div style="display:flex;justify-content:flex-end;margin:-5px 4px 8px"><button class="danger" onclick="deleteExpense(${e.id})">Delete</button></div>`).join(''):'<div class="empty"><b>No matching expenses</b>Try a different search or month.</div>';
+ document.getElementById('historyList').innerHTML=list.length?list.map(e=>txHTML(e)+`<div class="history-actions"><button class="secondary" style="width:auto;margin:0;padding:8px 13px" onclick='editExpense(${JSON.stringify(e.id)})'>Edit</button><button class="danger" onclick='deleteExpense(${JSON.stringify(e.id)})'>Delete</button></div>`).join(''):'<div class="empty"><b>No matching expenses</b>Try a different search or month.</div>';
 }
-function deleteExpense(id){if(!confirm('Delete this expense?'))return;expenses=expenses.filter(e=>e.id!==id);localStorage.setItem('spendsnap_expenses',JSON.stringify(expenses));renderHome();renderHistory();toast('Expense deleted')}
+function editExpense(id){
+ const e=expenses.find(x=>String(x.id)===String(id));if(!e)return;
+ openEntry(e.category||'other');
+ editingExpenseId=e.id;
+ document.getElementById('amount').value=e.amount??'';
+ document.getElementById('date').value=e.date||isoDate(new Date());
+ document.getElementById('time').value=e.time||'';
+ document.getElementById('note').value=e.note||'';
+ const c=categoryOf(e.category);
+ c.fields.forEach(f=>{const el=document.getElementById('extra_'+f.id);if(el)el.value=(e.extra||{})[f.id]??'';});
+ document.getElementById('entryTitle').textContent='Edit '+c.name;
+ document.getElementById('entrySubtitle').textContent='Update this previous expense';
+ document.querySelector('#expenseForm .primary').textContent='Save changes';
+ showScreen('entryScreen');
+}
+async function deleteExpense(id){
+ if(!confirm('Delete this expense?'))return;
+ try{await dbDelete(id);expenses=expenses.filter(e=>String(e.id)!==String(id));renderHome();renderHistory();toast('Expense deleted');}
+ catch(err){console.error(err);toast('Could not delete expense. Please try again.');}
+}
 function renderSummary(){
  const total=expenses.reduce((a,e)=>a+e.amount,0);document.getElementById('allTotal').textContent=money(total);document.getElementById('allCount').textContent=expenses.length+' expenses';
  document.getElementById('summaryList').innerHTML=categories.map(c=>{const sum=expenses.filter(e=>e.category===c.id).reduce((a,e)=>a+e.amount,0);return `<div class="transaction"><div class="tx-icon">${c.icon}</div><div class="tx-main"><div class="tx-title">${c.name}</div><div class="tx-meta">${expenses.filter(e=>e.category===c.id).length} entries</div></div><div class="tx-amount">${money(sum)}</div></div>`}).join('');
 }
+function downloadBlob(blob,filename){
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
 function exportCSV(){
  const rows=[['Date','Time','Category','Amount (INR)','Details','Note']];
  expenses.forEach(e=>{const c=categoryOf(e.category);rows.push([e.date,e.time,c.name,e.amount,Object.values(e.extra||{}).join(' | '),e.note||''])});
- const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='spendsnap-expenses.csv';a.click();URL.revokeObjectURL(url);
+ const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');downloadBlob(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),'spendsnap-expenses.csv');
 }
+function exportJSON(){
+ const backup={app:'SpendSnap',formatVersion:1,exportedAt:new Date().toISOString(),expenses};
+ downloadBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'SpendSnap-backup-'+isoDate(new Date())+'.json');
+ toast('Backup file prepared');
+}
+document.getElementById('jsonImport').addEventListener('change',async event=>{
+ const file=event.target.files?.[0];if(!file)return;
+ try{
+   const parsed=JSON.parse(await file.text());
+   const incoming=Array.isArray(parsed)?parsed:parsed.expenses;
+   if(!Array.isArray(incoming))throw new Error('This does not look like a SpendSnap backup.');
+   const valid=incoming.filter(e=>e&&e.id!==undefined&&Number(e.amount)>0&&categories.some(c=>c.id===e.category)&&/^\d{4}-\d{2}-\d{2}$/.test(e.date||''));
+   if(valid.length!==incoming.length)throw new Error('Some records are invalid. No data was changed.');
+   if(!confirm('Restore '+valid.length+' expenses? This will replace the current SpendSnap expense list on this device.'))return;
+   await new Promise((resolve,reject)=>{
+     const tx=spendSnapDB.transaction(EXPENSE_STORE,'readwrite');
+     const store=tx.objectStore(EXPENSE_STORE);store.clear();valid.forEach(e=>store.put(e));
+     tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+   });
+   expenses=await dbGetAll();
+   expenses.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.time||'').localeCompare(String(a.time||''))||Number(b.id)-Number(a.id));
+   renderHome();renderSummary();renderHistory();toast('Backup restored successfully');
+ }catch(err){alert('Could not restore backup: '+(err.message||'Invalid file'));}
+ finally{event.target.value='';}
+});
 document.getElementById('searchInput').addEventListener('input',renderHistory);document.getElementById('monthFilter').addEventListener('change',renderHistory);
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1900)}
-renderCategories();renderHome();
+renderCategories();
+initialiseStorage().then(()=>{renderHome();renderSummary();renderHistory();});
 
 const voicePanel = document.getElementById('voicePanel');
 const voiceStatus = document.getElementById('voiceStatus');
@@ -355,6 +525,10 @@ function parseVoiceExpense(){
 parseVoiceBtn.addEventListener('click',parseVoiceExpense);
 parseVoiceBtn.disabled=true;
 voiceTranscript.addEventListener('input',()=>{parseVoiceBtn.disabled=!voiceTranscript.value.trim();});
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+ navigator.serviceWorker.register('./service-worker.js').catch(err=>console.warn('Service worker registration failed:',err));
+}
 </script>
 </body>
 </html>

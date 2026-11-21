@@ -55,15 +55,53 @@ async function init(){
       },
       onRuntimeInitialized:()=>{
         try{
+          // The pinned WASM package preloads these exact files at the virtual FS root.
+          // The previous build used encoder.onnx/decoder.onnx/joiner.onnx, which
+          // do not exist in this package and caused the recognizer to fail at decode time.
+          const requiredFiles = [
+            '/transducer-encoder.onnx',
+            '/transducer-decoder.onnx',
+            '/transducer-joiner.onnx',
+            '/tokens.txt'
+          ];
+          const exists = (path) => {
+            const n = moduleRef.lengthBytesUTF8(path) + 1;
+            const p = moduleRef._malloc(n);
+            try {
+              moduleRef.stringToUTF8(path, p, n);
+              return moduleRef._SherpaOnnxFileExists(p) === 1;
+            } finally {
+              moduleRef._free(p);
+            }
+          };
+          const missing = requiredFiles.filter(path => !exists(path));
+          if (missing.length) {
+            throw new Error('The downloaded model package is missing: ' + missing.join(', ') + '. Clear the old voice cache and retry.');
+          }
+          if (typeof moduleRef._SherpaOnnxCreateOfflineRecognizer !== 'function') {
+            throw new Error('Sherpa WebAssembly API did not initialise correctly. Reload the app and retry.');
+          }
           const config={
             featConfig:{sampleRate:16000,featureDim:80},
             modelConfig:{
-              transducer:{encoder:'./encoder.onnx',decoder:'./decoder.onnx',joiner:'./joiner.onnx'},
-              tokens:'./tokens.txt',numThreads:2,provider:'cpu',debug:0
+              transducer:{
+                encoder:'/transducer-encoder.onnx',
+                decoder:'/transducer-decoder.onnx',
+                joiner:'/transducer-joiner.onnx'
+              },
+              modelType:'transducer',
+              tokens:'/tokens.txt',
+              numThreads:2,
+              provider:'cpu',
+              debug:0
             },
-            decodingMethod:'greedy_search',maxActivePaths:4
+            decodingMethod:'greedy_search',
+            maxActivePaths:4
           };
           recognizer=new OfflineRecognizer(config,moduleRef);
+          if (!recognizer || !recognizer.handle) {
+            throw new Error('Sherpa could not create the English recognizer. Please clear the cached voice files and retry.');
+          }
           ready=true;initializing=false;post('ready');
         }catch(err){initializing=false;post('error',{message:`Could not initialise the English model: ${err.message||err}`});}
       },
@@ -82,12 +120,17 @@ self.onmessage=async(event)=>{
     try{
       post('progress',{message:'Recognising speech locally…'});
       const samples=msg.samples instanceof Float32Array?msg.samples:new Float32Array(msg.samples);
+      if (!samples.length) throw new Error('The recording was empty. Please record again.');
       const stream=recognizer.createStream();
-      stream.acceptWaveform(16000,samples);
-      recognizer.decode(stream);
-      const result=recognizer.getResult(stream);
-      stream.free();
-      post('result',{text:result.text||''});
+      if (!stream || !stream.handle) throw new Error('Sherpa could not create an audio stream. Reload SpendSnap and retry.');
+      try {
+        stream.acceptWaveform(16000,samples);
+        recognizer.decode(stream);
+        const result=recognizer.getResult(stream);
+        post('result',{text:(result && result.text)||''});
+      } finally {
+        stream.free();
+      }
     }catch(err){post('error',{message:`Speech recognition failed: ${err.message||err}`});}
   }
 };
